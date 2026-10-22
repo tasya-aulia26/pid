@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NumerasiQuest — PID Edition</title>
+<style>
+  *{box-sizing:border-box; margin:0; padding:0; font-family:"Segoe UI",Arial,sans-serif; -webkit-user-select:none; user-select:none;}
+  html,body{width:100%; height:100%; overflow:hidden; background:#08243f;}
+  /* ===== PANGGUNG 16:9, otomatis scale menyesuaikan layar PID ===== */
+  #stage{position:absolute; left:50%; top:50%; width:1600px; height:900px;
+    transform-origin:center center; overflow:hidden; background:#000;}
+  .bg{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;}
+
+  /* ===== LAYAR ===== */
+  .screen{position:absolute; inset:0; display:none;}
+  .screen.on{display:block;}
+
+  /* tombol besar PID */
+  .btn{border:none; cursor:pointer; border-radius:18px; font-weight:800;
+    background:linear-gradient(180deg,#ffd447,#ffb703); color:#5a3a00;
+    font-size:30px; padding:20px 44px; box-shadow:0 8px 0 #b07d00, 0 12px 24px rgba(0,0,0,.35);
+    transition:transform .1s;}
+  .btn:active{transform:translateY(6px); box-shadow:0 2px 0 #b07d00;}
+  .btn.biru{background:linear-gradient(180deg,#4facfe,#0066ff); color:#fff; box-shadow:0 8px 0 #003d7a, 0 12px 24px rgba(0,0,0,.35);}
+  .btn.hijau{background:linear-gradient(180deg,#67e08a,#0fae54); color:#063; box-shadow:0 8px 0 #076c3f;}
+  .btn.ghost{background:rgba(255,255,255,.85); color:#0f3f70; box-shadow:0 4px 0 rgba(0,0,0,.2); font-size:20px; padding:12px 22px;}
+
+  /* ===== LAYAR JUDUL ===== */
+  #sJudul .overlay-tengah{position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:flex-end; padding-bottom:56px; gap:18px;
+    background:linear-gradient(180deg,transparent 55%, rgba(6,25,50,.75) 100%);}
+  #sJudul input{font-size:26px; padding:14px 18px; border-radius:14px; border:3px solid #0f3f70;
+    width:420px; text-align:center; background:#fffdf5;}
+  .hint-nama{color:#fff; font-size:17px; opacity:.92; text-shadow:0 2px 4px #000;}
+
+  /* ===== LAYAR PETA ===== */
+  .pulau{position:absolute; width:118px; height:118px; margin:-59px 0 0 -59px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; flex-direction:column; cursor:pointer;
+    background:rgba(255,255,255,.18); border:5px solid #fff; box-shadow:0 8px 22px rgba(0,0,0,.4);
+    color:#fff; text-align:center; transition:transform .15s;}
+  .pulau .ic{font-size:44px; filter:drop-shadow(0 3px 4px rgba(0,0,0,.5));}
+  .pulau .lb{font-size:15px; font-weight:800; margin-top:2px; text-shadow:0 2px 4px #000;}
+  .pulau.aktif{animation:puls 1.6s infinite;}
+  @keyframes puls{0%,100%{transform:scale(1); border-color:#ffd447;}50%{transform:scale(1.08); border-color:#fff;}}
+  .pulau.kunci{filter:grayscale(1); opacity:.55; cursor:not-allowed;}
+  .pulau.selesai{border-color:#2ecc71; background:rgba(46,204,113,.25);}
+  .pulau.selesai .lb::after{content:" ✓"; color:#2ecc71;}
+  .hud{position:absolute; left:24px; bottom:20px; display:flex; gap:14px;}
+  .hud .kardus{background:rgba(8,30,60,.82); color:#fff; border-radius:14px; padding:12px 22px; font-size:22px; font-weight:800;}
+  .hud .kardus span{color:#ffd447;}
+  .btn-atas{position:absolute; right:24px; bottom:20px; display:flex; gap:10px;}
+  .btn-reset{font-size:16px; padding:10px 16px; background:rgba(255,255,255,.8); color:#a02121; border-radius:12px; border:none; cursor:pointer; font-weight:700;}
+
+  /* ===== LAYAR LEVEL ===== */
+  .panel-misi{position:absolute; top:70px; right:34px; width:560px; max-height:760px; overflow:auto;
+    background:rgba(255,253,245,.97); border-radius:26px; box-shadow:0 18px 48px rgba(0,0,0,.5);
+    padding:26px; border:4px solid #0f3f70;}
+  .panel-misi h2{font-size:30px; color:#0f3f70;}
+  .panel-misi .sub{font-size:16px; color:#667; margin:4px 0 14px;}
+  .soal-text{font-size:21px; line-height:1.5; background:#eef5ff; border:2px dashed #7aa5e0;
+    border-radius:14px; padding:14px; margin-bottom:14px;}
+  .opsi-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .opsi-grid button{font-size:20px; font-weight:700; padding:16px 14px; text-align:center;
+    border:3px solid #c9d6ea; background:#f4f8ff; border-radius:14px; cursor:pointer; transition:.12s;}
+  .opsi-grid button:hover{border-color:#0f3f70;}
+  .opsi-grid button.benar{background:#d8f3dc; border-color:#0fae54;}
+  .opsi-grid button.salah{background:#fde2e2; border-color:#d64545; opacity:.5;}
+  .opsi-grid button.huruf::before{content:attr(data-huruf) ". "; color:#0f3f70;}
+  .feedback{margin-top:12px; font-size:19px; font-weight:800; min-height:30px;}
+  .feedback.ok{color:#0fae54;} .feedback.err{color:#d64545;}
+  .hintbox{margin-top:10px; background:#fff4d6; border:2px dashed #e0b341; border-radius:12px;
+    padding:12px; font-size:17px; display:none;}
+  .hintbox.show{display:block;}
+  .timer-box{position:absolute; top:34px; left:34px; background:rgba(8,30,60,.85); color:#fff;
+    font-size:30px; font-weight:800; padding:14px 24px; border-radius:16px;}
+  .timer-box.danger{background:rgba(214,69,69,.92); animation:kb .8s infinite;}
+  @keyframes kb{50%{opacity:.6}}
+  .back-map{position:absolute; top:70px; left:34px; margin-top:74px;}
+  .skor-now{position:absolute; top:126px; left:34px; background:rgba(8,30,60,.85); color:#ffd447; font-size:22px; font-weight:800; padding:10px 18px; border-radius:12px;}
+  .konfeti{position:absolute; font-size:44px; animation:terbang 1.4s ease-out forwards; pointer-events:none;}
+  @keyframes terbang{from{transform:translateY(0) rotate(0); opacity:1;} to{transform:translateY(-260px) rotate(340deg); opacity:0;}}
+
+  /* ===== LAYAR KESIMPULAN ===== */
+  .panel-kunci{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    background:rgba(255,253,245,.97); border-radius:26px; padding:30px 44px; text-align:center;
+    border:5px double #0f3f70; box-shadow:0 18px 48px rgba(0,0,0,.5); display:none; max-width:640px;}
+  .panel-kunci h2{color:#0f3f70; font-size:34px;}
+  .panel-kunci .skor-akhir{font-size:44px; font-weight:900; color:#c0392b; margin:10px 0;}
+  .panel-kunci p{font-size:18px; color:#445;}
+  @media print{
+    body{background:#fff;} #stage{transform:none; left:0; top:0;}
+    .bg,.timer-box,.back-map,.skor-now,.btn,.opsi-grid,.soal-text,.hintbox,.feedback,.hud,.btn-atas{display:none !important;}
+    .panel-kunci{display:block !important; position:static; transform:none; border:4px double #0f3f70;}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- ========== 1. JUDUL ========== -->
+  <div class="screen on" id="sJudul">
+    <img class="bg" src="img/judul.jpg" alt="">
+    <div class="overlay-tengah">
+      <input id="namaSiswa" type="text" maxlength="28" placeholder="✏️ Tulis namamu di sini, Pelaut Muda">
+      <button class="btn" onclick="mulaiGame()">⛵ &nbsp;MULAI PETUALANGAN</button>
+      <div class="hint-nama">6 Pulau menantimu • Setiap pulau = 1 tantangan numerasi • Raih Harta Karun!</div>
+    </div>
+  </div>
+
+  <!-- ========== 2. PETA ========== -->
+  <div class="screen" id="sPeta">
+    <img class="bg" src="img/peta.jpg" alt="">
+    <!-- tombol pulau: posisi koordinat (lihat variabel POS di script) -->
+    <div class="hud">
+      <div class="kardus">🏅 Skor: <span id="skorHud">0</span> / <span id="skorMaksHud"></span></div>
+      <div class="kardus" id="hudNama"></div>
+    </div>
+    <div class="btn-atas">
+      <button class="btn-reset" onclick="resetGame()">↻ Reset (Tutor)</button>
+    </div>
+  </div>
+
+  <!-- ========== 3..7. LEVEL ========== -->
+  <div class="screen" id="sLevel">
+    <img class="bg" id="levelBg" src="">
+    <div class="timer-box" id="timerBox">⏱ 0:00</div>
+    <div class="skor-now">🏅 <span id="skorLevel">0</span></div>
+    <button class="btn ghost back-map" onclick="kePeta()">🗺️ Peta</button>
+    <div class="panel-misi" id="panelMisi"></div>
+  </div>
+
+  <!-- ========== 8. KESIMPULAN / SERTIFIKAT ========== -->
+  <div class="screen" id="sSelesai">
+    <img class="bg" src="img/kesimpulan.jpg" alt="">
+    <div class="panel-kunci" id="panelKunci">
+      <div style="font-size:64px;">🏆</div>
+      <h2>HARTA KARUN NUMERASI DITEMUKAN!</h2>
+      <p>Sertifikat Pendekar Numerasi untuk</p>
+      <div id="sertNama" style="font-size:34px; font-weight:900; color:#c0392b; margin:8px 0;"></div>
+      <div class="skor-akhir" id="skorAkhir"></div>
+      <p id="sertTanggal"></p>
+      <p style="margin-top:12px;">
+        <button class="btn" onclick="window.print()">🖨️ Cetak Sertifikat</button>
+        &nbsp;
+        <button class="btn hijau" onclick="resetGame()">🗺️ Kembali ke Peta</button>
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* =====================================================
+   NUMERASIQ QUEST — PID EDITION
+   Pemanfaatan AI  : soal digenerate AI (deskripsi prompt → PROMPT-AI-dan-CODING.md)
+   Pemanfaatan Coding: game interaktif HTML/JS ini (algoritma → bagian B dokumen)
+   ===================================================== */
+
+/* ---------- DATA SOAL ---------- */
+const LEVELS = [
+  {
+    namaPulau:"Pulau Pemahaman", layer:"img/level1.jpg", durasi:300,
+    judul:"Level 1 • Pulau Bilangan", sub:"Operasi hitung bilangan — 3 misi • 5 menit",
+    soal:[
+      {q:"Sebuah toko buku menerima 12 kotak buku. Setiap kotak berisi 25 buku. Lalu, 80 buku disumbangkan ke perpustakaan sekolah. Berapa banyak buku yang masih tersisa di toko?",
+       opsi:["220 buku","240 buku","300 buku","360 buku"], benar:0,
+       hint:"Langkah 1: 12 × 25 = 300 buku. Langkah 2: 300 − 80 = 220 buku."},
+      {q:"Perpustakaan sekolah memiliki 156 buku. Hari ini 35 buku dipinjam siswa dan 24 buku dikembalikan. Berapa banyak buku di perpustakaan sekarang?",
+       opsi:["145 buku","147 buku","151 buku","155 buku"], benar:0,
+       hint:"Dipinjam = berkurang, dikembalikan = bertambah. 156 − 35 + 24 = 145."},
+      {q:"Guru membagi 120 buku latihan kepada 6 kelompok secara sama banyak. Berapa buku yang diterima setiap kelompok?",
+       opsi:["18 buku","20 buku","24 buku","25 buku"], benar:1,
+       hint:"Membagi sama banyak = pembagian. 120 ÷ 6 = 20."}
+    ]
+  },
+  { // 1 → Pulau 2 (Strategi) = layer "Level 2 Dua Pulau"
+    namaPulau:"Pulau Strategi", layer:"img/level2.jpg", durasi:240,
+    judul:"Level 2 • Pulau Pecahan & Pengukuran", sub:"Pilih strategi tepat — 2 misi • 4 menit",
+    soal:[
+      {q:"Siti memiliki 3/4 kue cokelat. Ia memberikan 1/4 kue tersebut kepada temannya. Berapa bagian kue yang masih dimiliki Siti?",
+       opsi:["1/4","2/4","1/2","1"], benar:1,
+       hint:"Operasi pengurangan pecahan: 3/4 − 1/4 = 2/4. (2/4 = 1/2, tetapi kunci di layer = B. 2/4)"},
+      {q:"Sebuah bak mandi berisi 32 liter air. Ibu menambahkan 1.500 mililiter lagi. Berapa liter jumlah air di dalam bak mandi sekarang?",
+       opsi:["33,5 liter","34 liter","34,5 liter","35 liter"], benar:0,
+       hint:"Samakan satuan dulu: 1.500 ml = 1,5 L. Maka 32 + 1,5 = 33,5 liter."}
+    ]
+  },
+  { // 2 → Pulau 3 (Hitung Cepat) = layer "Level 3 Geometri & Data"
+    namaPulau:"Pulau Hitung Cepat", layer:"img/level3.jpg", durasi:180,
+    judul:"Level 3 • Pulau Geometri & Data", sub:"Cepat & tepat — 2 misi • 3 menit",
+    soal:[
+      {q:"Sebuah taman berbentuk persegi panjang dengan panjang 12 meter dan lebar 8 meter. Di sekeliling taman akan dipasang pagar. Berapa meter panjang pagar yang dibutuhkan?",
+       opsi:["20 meter","32 meter","36 meter","40 meter"], benar:3,
+       hint:"Pagar = keliling = 2 × (p + l) = 2 × (12 + 8) = 40 meter."},
+      {q:"Diagram jumlah buku dipinjam: Senin 15, Selasa 20, Rabu 12, Kamis 18, Jumat 10. Pada hari apakah buku dipinjam paling banyak, dan berapa selisihnya dengan hari Jumat?",
+       opsi:["Kamis, 8 buku","Selasa, 10 buku","Selasa, 8 buku","Kamis, 10 buku"], benar:1,
+       hint:"Banyaknya = batang tertinggi = Selasa (20). Selisih Selasa–Jumat = 20 − 10 = 10 buku."}
+    ]
+  },
+  { // 3 → Pulau 4 (Soal Cerita) = layer "Level 5 Kehidupan Sehari-hari"
+    namaPulau:"Pulau Soal Cerita", layer:"img/level5.jpg", durasi:240,
+    judul:"Level 4 • Numerasi Kehidupan Sehari-hari", sub:"Masalah dunia nyata — 4 misi • 4 menit",
+    soal:[
+      {q:"Harga satu buku Rp7.500. Rina membeli 4 buku. Berapa total yang harus dibayarkan Rina?",
+       opsi:["Rp25.000","Rp30.000","Rp35.000","Rp40.000"], benar:1,
+       hint:"4 × Rp7.500 = Rp30.000."},
+      {q:"Kegiatan dimulai pukul 08.00 dan berlangsung 1 jam 30 menit. Pukul berapa kegiatan selesai?",
+       opsi:["Pukul 09.00","Pukul 09.30","Pukul 10.00","Pukul 09.15"], benar:1,
+       hint:"08.00 + 1 jam 30 menit = 09.30."},
+      {q:"Resep kue membutuhkan 250 gram tepung untuk 5 porsi. Berapa gram tepung yang dibutuhkan untuk 3 porsi?",
+       opsi:["100 gram","150 gram","125 gram","200 gram"], benar:1,
+       hint:"Tepung per porsi = 250 ÷ 5 = 50 gram. Untuk 3 porsi = 50 × 3 = 150 gram."},
+      {q:"Jarak rumah ke sekolah 3 km dan ditempuh berjalan kaki dalam 15 menit. Berapa jarak yang ditempuh dalam 5 menit?",
+       opsi:["0,5 km","1 km","1,5 km","2 km"], benar:1,
+       hint:"5 menit = 1/3 dari 15 menit. Maka jarak = 3 km ÷ 3 = 1 km."}
+    ]
+  },
+  { // 4 → Pulau 5 (HOTS) = layer "Evaluasi"
+    namaPulau:"Tantangan HOTS", layer:"img/evaluasi.jpg", durasi:600,
+    judul:"Evaluasi • Ujian Petualang HOTS", sub:"Kerjakan mandiri — 5 misi • 10 menit",
+    soal:[
+      {q:"Sebuah toko membeli 8 dus pensil. Setiap dus berisi 36 pensil. Jika 75 pensil sudah dijual, berapa banyak pensil yang masih tersisa?",
+       opsi:["213","223","243","288"], benar:0,
+       hint:"8 × 36 = 288 pensil. 288 − 75 = 213."},
+      {q:"Ibu membuat kue dan memotongnya menjadi 8 bagian sama besar. Rina memakan 3 bagian. Berapa bagian kue yang masih tersisa?",
+       opsi:["1/8","3/8","5/8","7/8"], benar:2,
+       hint:"Tersisa = 8 − 3 = 5 bagian → 5/8."},
+      {q:"Sebuah botol berisi 750 mililiter jus jeruk. Jika ditambahkan 1,25 liter jus jeruk lagi, berapa liter jumlah jus jeruk sekarang?",
+       opsi:["1,75 liter","2 liter","2,75 liter","3 liter"], benar:1,
+       hint:"Samakan satuan: 750 ml = 0,75 L. Maka 0,75 + 1,25 = 2 liter."},
+      {q:"Sebuah lapangan berbentuk persegi panjang dengan panjang 25 meter dan lebar 14 meter. Berapa meter keliling lapangan tersebut?",
+       opsi:["39 meter","50 meter","64 meter","78 meter"], benar:3,
+       hint:"Keliling = 2 × (25 + 14) = 2 × 39 = 78 meter."},
+      {q:"Diagram menunjukkan jumlah siswa kelas VI yang mengikuti kegiatan ekstrakurikuler: Pramuka 12, Seni 15, Olahraga 18, Robotik 10. Kegiatan yang diikuti paling banyak adalah ...",
+       opsi:["Pramuka","Seni","Olahraga","Robotik"], benar:2,
+       hint:"Angka terbesar = 18 → Olahraga. (Opsi C diperbaiki: pada layer tertulis 'Seni' dua kali, kemungkinan typo di slide aslinya.)"}
+    ]
+  }
+];
+
+/* posisi tombol pulau di layer peta (persen dari 1600x900) */
+const POS = [
+  {x:28, y:28, ic:"📖"},
+  {x:46, y:26, ic:"🧭"},
+  {x:68, y:28, ic:"⚡"},
+  {x:32, y:52, ic:"🏪"},
+  {x:52, y:52, ic:"💡"},
+  {x:84, y:47, ic:"🏆"}
+];
+
+let skor = 0, pulauSelesai = [], nama = "Pelaut Muda";
+let timerID=null, sisaDetik=0, levelAktif=0, cobaSoal=0, soalPoinDiberikan=false;
+const POIN_PER_SOAL = 30;
+const SKOR_MAKS = LEVELS.reduce((a,l)=>a+l.soal.length,0) * POIN_PER_SOAL;
+
+/* ---------- UTIL ---------- */
+function fit(){
+  const s = Math.min(window.innerWidth/1600, window.innerHeight/900);
+  document.getElementById("stage").style.transform = `translate(-50%,-50%) scale(${s})`;
+}
+window.addEventListener("resize", fit); fit();
+document.getElementById("skorMaksHud").textContent = SKOR_MAKS;
+
+function tampilkan(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("on"));
+  document.getElementById(id).classList.add("on");
+}
+
+/* ---------- ALUR UTAMA ---------- */
+function mulaiGame(){
+  nama = document.getElementById("namaSiswa").value.trim() || "Pelaut Muda";
+  document.getElementById("hudNama").textContent = "⛵ " + nama;
+  buatTombolPulau();
+  tampilkan("sPeta");
+}
+
+function buatTombolPulau(){
+  const peta = document.getElementById("sPeta");
+  peta.querySelectorAll(".pulau").forEach(n=>n.remove());
+  LEVELS.forEach((lv,i)=>{
+    const el = document.createElement("div");
+    el.className = "pulau";
+    el.style.left = POS[i].x + "%";
+    el.style.top  = POS[i].y + "%";
+    el.innerHTML = `<div class="ic">${POS[i].ic}</div><div class="lb">${lv.namaPulau.replace("Pulau ","")}</div>`;
+    el.onclick = ()=>klikPulau(i);
+    el.dataset.i = i;
+    peta.appendChild(el);
+  });
+  // Pulau 6 = Pulau Juara (trofi) → sertifikat
+  const j = document.createElement("div");
+  j.className = "pulau";
+  j.style.left = POS[5].x + "%";
+  j.style.top  = POS[5].y + "%";
+  j.innerHTML = `<div class="ic">🏆</div><div class="lb">Juara</div>`;
+  j.onclick = ()=>klikPulau(5);
+  j.dataset.i = 5;
+  j.id = "pulauJuara";
+  peta.appendChild(j);
+  perbaruiPeta();
+}
+
+function perbaruiPeta(){
+  document.querySelectorAll(".pulau").forEach(el=>{
+    const i = +el.dataset.i;
+    if(i === 5){ // Pulau Juara: terbuka setelah semua level selesai
+      el.classList.toggle("selesai", false);
+      const terbuka = LEVELS.every((_,idx)=>pulauSelesai.includes(idx));
+      el.classList.toggle("kunci", !terbuka);
+      el.classList.toggle("aktif", terbuka);
+      return;
+    }
+    el.classList.toggle("selesai", pulauSelesai.includes(i));
+    const terbuka = (i === 0) || (pulauSelesai.includes(i-1));
+    el.classList.toggle("kunci", !terbuka && !pulauSelesai.includes(i));
+    el.classList.toggle("aktif", terbuka && !pulauSelesai.includes(i));
+  });
+  document.getElementById("skorHud").textContent = skor;
+}
+
+function klikPulau(i){
+  const terbuka = (i===0) || (pulauSelesai.includes(i-1));
+  if(!terbuka && !pulauSelesai.includes(i)){ alert("Pulau ini masih terkunci! Selesaikan pulau sebelumnya dulu, Kapten. 🗝️"); return; }
+  if(i === 5){ // Pulau Juara → layar selesai
+    clearInterval(timerID);
+    isiSertifikat();
+    tampilkan("sSelesai");
+    return;
+  }
+  levelAktif = i; cobaSoal = 0;
+  loadLevel(i);
+}
+
+function loadLevel(i){
+  const lv = LEVELS[i];
+  document.getElementById("levelBg").src = lv.layer;
+  sisaDetik = lv.durasi;
+  clearInterval(timerID);
+  timerID = setInterval(tick, 1000);
+  renderSoal();
+  tampilkan("sLevel");
+}
+
+function tick(){
+  sisaDetik--;
+  const el = document.getElementById("timerBox");
+  const m = Math.floor(Math.max(0,sisaDetik)/60), s = Math.max(0,sisaDetik)%60;
+  el.textContent = `⏱ ${m}:${String(s).padStart(2,"0")}`;
+  el.classList.toggle("danger", sisaDetik<=30);
+  if(sisaDetik<=0){
+    clearInterval(timerID);
+    el.textContent = "⏰ Waktu pulau habis — lanjutkan dengan tenang!";
+  }
+}
+
+function renderSoal(){
+  soalPoinDiberikan = false;
+  const lv = LEVELS[levelAktif];
+  const so = lv.soal[cobaSoal];
+  const p = document.getElementById("panelMisi");
+  const huruf = ["A","B","C","D"];
+  let html = `<h2>${lv.judul}</h2><div class="sub">${lv.sub} &nbsp;•&nbsp; Misi ${cobaSoal+1}/${lv.soal.length}</div>`;
+  html += `<div class="soal-text">${so.q}</div><div class="opsi-grid">`;
+  so.opsi.forEach((t,k)=>{
+    html += `<button class="huruf" data-huruf="${huruf[k]}" onclick="jawab(${k}, this)">${t}</button>`;
+  });
+  html += `</div><div class="feedback" id="fb"></div>`;
+  html += `<div class="hintbox" id="hintBox">💡 ${so.hint}</div>`;
+  p.innerHTML = html;
+  document.getElementById("skorLevel").textContent = skor;
+}
+
+function jawab(k, btn){
+  const lv = LEVELS[levelAktif], so = lv.soal[cobaSoal];
+  const semua = document.querySelectorAll(".opsi-grid button");
+  if(k === so.benar){
+    btn.classList.add("benar");
+    semua.forEach(b=>b.disabled=true);
+    const poin = soalPoinDiberikan ? 0 : (document.querySelector(".opsi-grid button.salah") ? 15 : 30);
+    if(poin>0){ skor += poin; soalPoinDiberikan = true; }
+    document.getElementById("skorLevel").textContent = skor;
+    document.getElementById("fb").textContent = "✅ Benar!" + (poin>0 ? " +" + poin + " poin" : "");
+    document.getElementById("fb").className = "feedback ok";
+    konfeti();
+    setTimeout(()=>{
+      if(cobaSoal < lv.soal.length - 1){ cobaSoal++; sisaDetik = lv.durasi; renderSoal(); }
+      else { selesaikanLevel(); }
+    }, 1200);
+  } else {
+    btn.classList.add("salah");
+    btn.disabled = true;
+    document.getElementById("fb").textContent = "❌ Belum tepat — lihat petunjuknya, lalu pilih lagi!";
+    document.getElementById("fb").className = "feedback err";
+    document.getElementById("hintBox").classList.add("show");
+  }
+}
+
+function selesaikanLevel(){
+  pulauSelesai.push(levelAktif);
+  clearInterval(timerID);
+  perbaruiPeta();
+  tampilkan("sPeta");
+}
+
+function kePeta(){
+  clearInterval(timerID);
+  perbaruiPeta();
+  tampilkan("sPeta");
+}
+
+/* ---------- SERTIFIKAT ---------- */
+function isiSertifikat(){
+  document.getElementById("sertNama").textContent = nama;
+  document.getElementById("skorAkhir").textContent = "Skor akhir: " + skor + " / " + SKOR_MAKS;
+  document.getElementById("sertTanggal").textContent =
+    "— " + new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"}) + " —";
+  document.getElementById("panelKunci").style.display = "block";
+}
+
+function resetGame(){
+  skor = 0; pulauSelesai = []; cobaSoal = 0;
+  clearInterval(timerID);
+  document.getElementById("panelKunci").style.display = "none";
+  buatTombolPulau();
+  tampilkan("sJudul");
+}
+
+function konfeti(){
+  const p = document.getElementById("panelMisi");
+  for(let i=0;i<5;i++){
+    const c = document.createElement("div");
+    c.className = "konfeti";
+    c.textContent = ["🎉","⭐","✨","🏅","🎊"][i];
+    c.style.left = (40 + Math.random()*60) + "%";
+    c.style.top  = "40%";
+    c.style.animationDelay = (i*0.08)+"s";
+    p.appendChild(c);
+    setTimeout(()=>c.remove(), 1600);
+  }
+}
+</script>
+</body>
+</html>
