@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NumerasiQuest — Petualangan Numerasi</title>
+<style>
+  :root{
+    --laut:#1e6fb8; --laut-tua:#15548f; --pasir:#f6e7c1;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; font-family:"Segoe UI",Arial,sans-serif;}
+  body{min-height:100vh; background:linear-gradient(180deg,#3d9be0 0%,#1e6fb8 35%,#15548f 100%); color:#222; display:flex; align-items:center; justify-content:center; padding:12px;}
+  .game{width:100%; max-width:860px; background:#fffdf5; border-radius:22px; box-shadow:0 18px 50px rgba(0,0,0,.35); overflow:hidden; position:relative;}
+  /* header */
+  .topbar{display:flex; justify-content:space-between; align-items:center; padding:14px 20px; background:#0f3f70; color:#fff;}
+  .topbar h1{font-size:20px; letter-spacing:.5px;}
+  .topbar h1 span{color:#ffd447;}
+  .timer{font-size:18px; font-weight:700; background:rgba(255,255,255,.15); padding:6px 14px; border-radius:10px; min-width:96px; text-align:center;}
+  .timer.danger{background:#d64545; animation:blink 1s infinite;}
+  @keyframes blink{50%{opacity:.6}}
+  /* start screen */
+  .screen{padding:34px 30px; text-align:center;}
+  #startScreen .kapal{font-size:74px;}
+  #startScreen h2{font-size:30px; color:#0f3f70; margin:8px 0 4px;}
+  #startScreen p.sub{color:#557; margin-bottom:18px;}
+  .rules{background:#eef5ff; border:2px dashed #7aa5e0; border-radius:14px; padding:14px 18px; text-align:left; display:inline-block; margin-bottom:18px; max-width:520px;}
+  .rules b{color:#0f3f70;}
+  .rules li{margin:5px 0;}
+  #nama{font-size:18px; padding:10px 14px; border:2px solid #0f3f70; border-radius:10px; width:320px; max-width:100%; margin-bottom:14px;}
+  .btn{display:inline-block; background:#0f3f70; color:#fff; font-size:18px; font-weight:700; border:none; border-radius:12px; padding:12px 30px; cursor:pointer;}
+  .btn:hover{background:#1a5694;}
+  .btn.kecil{font-size:14px; padding:8px 16px; background:#c0392b;}
+  /* minimap */
+  .minimap{display:flex; align-items:center; justify-content:center; gap:0; padding:16px 10px 4px; background:var(--pasir);}
+  .pulau-node{display:flex; flex-direction:column; align-items:center; width:86px; position:relative; z-index:2;}
+  .pulau-node .dot{width:58px; height:58px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px; border:4px solid #fff; box-shadow:0 4px 10px rgba(0,0,0,.25); transition:transform .3s; background:#999;}
+  .pulau-node .lbl{font-size:11px; font-weight:700; margin-top:4px; color:#444;}
+  .pulau-node.akan .dot{transform:scale(1.15); border-color:#ffd447;}
+  .pulau-node.selesai .dot{border-color:#2ecc71;}
+  .pulau-node.selesai .dot::after{content:"✓"; position:absolute; top:-4px; right:-2px; background:#2ecc71; color:#fff; border-radius:50%; width:20px; height:20px; font-size:12px; display:flex; align-items:center; justify-content:center;}
+  .jembatan{height:4px; width:34px; background:repeating-linear-gradient(90deg,#8a6d3b 0 10px,transparent 10px 18px); margin:0 0 18px; align-self:center; margin-bottom:20px;}
+  /* kartu misi */
+  .misi{margin:14px 18px; border-radius:16px; padding:18px; color:#fff; min-height:96px;}
+  .misi h3{font-size:22px;} .misi p{opacity:.92; margin-top:4px;}
+  .kq{padding:8px 22px 22px;}
+  .kq .meta{font-size:13px; color:#777; margin-bottom:8px;}
+  .kq h4{font-size:17px; line-height:1.5; margin-bottom:14px; color:#222;}
+  .opsi{display:flex; flex-direction:column; gap:9px; max-width:560px;}
+  .opsi button{text-align:left; font-size:16px; padding:12px 16px; border:2px solid #c9d6ea; border-radius:10px; background:#f4f8ff; cursor:pointer; transition:.15s;}
+  .opsi button:hover{border-color:#0f3f70; background:#e4eeff;}
+  .opsi button.benar{background:#d8f3dc; border-color:#2ecc71;}
+  .opsi button.salah{background:#fde2e2; border-color:#d64545; opacity:.55;}
+  .hint{margin-top:12px; background:#fff4d6; border:2px dashed #e0b341; border-radius:10px; padding:10px 14px; font-size:14px; display:none;}
+  .hint.show{display:block;}
+  .pesan{margin-top:10px; font-weight:700; min-height:22px; font-size:15px;}
+  .pesan.ok{color:#1e9e58;} .pesan.err{color:#c0392b;}
+  .nextrow{margin-top:14px;}
+  /* overlay waktu habis */
+  .overlay{position:absolute; inset:0; background:rgba(10,25,50,.82); display:none; align-items:center; justify-content:center; z-index:50; text-align:center; padding:20px;}
+  .overlay.show{display:flex;}
+  .overlay .kotak{background:#fffdf5; border-radius:18px; padding:30px 40px; max-width:420px;}
+  .overlay h2{color:#c0392b; font-size:26px; margin-bottom:8px;}
+  /* finish */
+  #finishScreen{display:none;}
+  .harta{font-size:80px; animation:melompat .8s ease-in-out infinite alternate;}
+  @keyframes melompat{to{transform:translateY(-14px) rotate(6deg);}}
+  .sertifikat{margin:18px auto; max-width:560px; border:4px double #0f3f70; border-radius:14px; padding:22px; background:#fffbe8;}
+  .sertifikat h3{color:#0f3f70; letter-spacing:1px;}
+  .sertifikat .nama{font-size:26px; font-weight:800; color:#c0392b; margin:10px 0;}
+  .sertifikat p{font-size:14px; color:#444;}
+  @media print{
+    body{background:#fff;} .game{box-shadow:none; max-width:100%;}
+    .topbar,.minimap,.no-print{display:none !important;}
+    #startScreen,#gameScreen{display:none !important;}
+    #finishScreen{display:block !important;}
+  }
+</style>
+</head>
+<body>
+<div class="game">
+
+  <!-- ===== LAYAR AWAL ===== -->
+  <div class="screen" id="startScreen">
+    <div class="kapal">⛵</div>
+    <h2>Numerasi<span style="color:#c0392b;">Quest</span></h2>
+    <p class="sub">Petualangan Numerasi — Menuju Dunia Nyata • Kelas VI</p>
+    <div class="rules">
+      <b>Aturan Petualangan:</b>
+      <ul style="list-style:none;">
+        <li>🏝️ Jelajahi <b>6 pulau</b>, dari Pulau Pemahaman sampai Pulau Juara</li>
+        <li>⏱️ Waktu tiap pulau: <b>3 menit</b></li>
+        <li>❓ Jawab <b>3 misi</b> di tiap pulau agar bisa berlayar ke pulau berikutnya</li>
+        <li>💡 Boleh pakai <b>petunjuk</b> bila tersesat</li>
+        <li>🏆 Temukan <b>Harta Karun Numerasi</b> di pulau terakhir!</li>
+      </ul>
+    </div>
+    <br>
+    <input id="nama" type="text" maxlength="30" placeholder="Tulis namamu, Pelaut Muda...">
+    <br>
+    <button class="btn" onclick="mulai()">🚩 Mulai Petualangan</button>
+  </div>
+
+  <!-- ===== LAYAR PERMAINAN ===== -->
+  <div id="gameScreen" style="display:none;">
+    <div class="topbar">
+      <h1>🧭 Numerasi<span>Quest</span> &nbsp;•&nbsp; <span id="namaTampil"></span></h1>
+      <div class="timer" id="timer">⏱ 3:00</div>
+    </div>
+    <div class="minimap" id="minimap"></div>
+    <div class="misi" id="misiKartu"></div>
+    <div class="kq">
+      <div class="meta" id="metaKq"></div>
+      <h4 id="teksKq"></h4>
+      <div class="opsi" id="dafterOpsi"></div>
+      <div class="hint" id="kotakHint"></div>
+      <div class="pesan" id="pesan"></div>
+      <div class="nextrow" id="barisNext"></div>
+    </div>
+  </div>
+
+  <!-- ===== LAYAR FINISH ===== -->
+  <div class="screen" id="finishScreen">
+    <div class="harta">🏆</div>
+    <h2 style="color:#0f3f70;">HARTA KARUN NUMERASI DITEMUKAN!</h2>
+    <div class="sertifikat">
+      <h3>📜 SERTIFIKAT PENDEKAR NUMERASI</h3>
+      <p style="margin-top:10px;">Memberikan penghargaan kepada</p>
+      <div class="nama" id="namaSertifikat"></div>
+      <p>yang telah berhasil menaklukkan 6 Pulau NumerasiQuest<br>dengan tepat dan berani.</p>
+      <p id="infoWaktu" style="margin-top:8px;"></p>
+    </div>
+    <div class="no-print">
+      <button class="btn" onclick="window.print()">🖨️ Cetak Sertifikat</button>
+      &nbsp;
+      <button class="btn kecil" onclick="location.reload()">↻ Main Lagi</button>
+    </div>
+  </div>
+
+  <!-- ===== OVERLAY WAKTU HABIS ===== -->
+  <div class="overlay" id="waktuHabis">
+    <div class="kotak">
+      <div style="font-size:54px;">⏰</div>
+      <h2>Waktu Pulau Habis!</h2>
+      <p style="margin-bottom:14px;">Nakhoda... ombak menunggu. Coba lagi pulau ini.</p>
+      <button class="btn" onclick="ulangPulau()">🔁 Coba Lagi</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= DATA GAME =================
+   Soal-sosol tiap pulau digenerate menggunakan AI (deskripsi prompt
+   terlampir dalam file PROMPT-AI.md untuk laporan lomba). */
+const PULAU = [
+  {
+    nama:"Pulau Pemahaman", emoji:"📖", warna:"#ec4899",
+    misi:"Misi: Identifikasi informasi penting dalam soal.",
+    soal:[
+      { q:"Suatu toko sayur mencatat penjualan: tomat 45 kg, bawang 30 kg, cabai 20 kg. Sayur manakah yang penjualannya paling banyak?",
+        opsi:["Cabai (20 kg)","Bawang (30 kg)","Tomat (45 kg)","Tomat dan bawang sama banyak"], benar:2,
+        hint:"Bandingkan ketiga angka. Angka terbesar menunjukkan sayur yang paling laku." },
+      { q:"Bu Siti membeli 4 kg beras. Informasi apa yang PUNYA kamu ketahui dan informasi apa yang kamu perlukan untuk menghitung berapa yang harus ia bayar?",
+        opsi:["Berat beras yang dibeli, dan harga 1 kg beras","Hanya berat beras saja","Hanya harga 1 kg beras","Umur Bu Siti dan harga beras"], benar:0,
+        hint:"Untuk 'banyak × satu', kamu butuh Berat dan Harga per kg. Kalikan keduanya!" },
+      { q:"Dari data penjualan tomat 45 kg, bawang 30 kg, cabai 20 kg: data mana yang TIDAK PERLU kamu ketahui untuk menjawab 'berapa selisih penjualan tomat dan cabai'?",
+        opsi:["Penjualan tomat","Penjualan cabai","Penjualan bawang","Semua data"], benar:2,
+        hint:"Selisih tomat dan cabai hanya melibatkan dua angka itu. Bawang tidak masuk urusan." }
+    ]
+  },
+  {
+    nama:"Pulau Strategi", emoji:"📋", warna:"#3b82f6",
+    misi:"Misi: Tentukan operasi hitung yang tepat.",
+    soal:[
+      { q:"Sebuah truk mengangkut 12 peti, masing-masing berisi 15 kg. Operasi hitung manakah yang tepat untuk mencari berat seluruh muatan?",
+        opsi:["12 + 15","12 × 15","15 − 12","15 ÷ 12"], benar:1,
+        hint:"Penjumlahan berulang (15+15+15+...) lebih cepat dilakukan dengan perkalian." },
+      { q:"Sebuah buku tebalnya 360 halaman. Andi membacanya sama rata dalam 6 hari. Operasi yang tepat untuk mencari halaman per hari?",
+        opsi:["360 + 6","360 × 6","360 − 6","360 ÷ 6"], benar:3,
+        hint:"Membagi rata-rata = pembagian. 360 ÷ 6 = 60 halaman per hari." },
+      { q:"Andri punya uang Rp125.000. Ia berbelanja menghabiskan Rp45.000. Operasi yang tepat untuk uang yang tersisa?",
+        opsi:["125.000 − 45.000","125.000 + 45.000","125.000 × 45.000","125.000 ÷ 45.000"], benar:0,
+        hint:"Sesuatu berkurang dari yang dimiliki = pengurangan. Sisa = Rp80.000." }
+    ]
+  },
+  {
+    nama:"Pulau Hitung Cepat", emoji:"⚡", warna:"#22c55e",
+    misi:"Misi: Selesaikan operasi hitung dengan tepat dan cepat!",
+    soal:[
+      { q:"Berapakah hasil dari 345 + 278 ?",
+        opsi:["513","623","612","723"], benar:1,
+        hint:"5+8=13 (tulis 3 simpan 1); 4+7+1=12 (tulis 2 simpan 1); 3+2+1=6. Hasil 623." },
+      { q:"Berapakah hasil dari 25 × 48 ?",
+        opsi:["1.200","1.020","1.250","960"], benar:0,
+        hint:"25 × 48 = 25 × 4 × 12 = 100 × 12 = 1.200." },
+      { q:"Berapakah hasil dari 7.200 ÷ 8 ?",
+        opsi:["900","800","1.800","90"], benar:0,
+        hint:"7.200 ÷ 8 = 7.200 ÷ 2 ÷ 2 ÷ 2 = 3.600 → 1.800 → 900." }
+    ]
+  },
+  {
+    nama:"Pulau Soal Cerita", emoji:"🏪", warna:"#a855f7",
+    misi:"Misi: Selesaikan soal dari kehidupan sehari-hari.",
+    soal:[
+      { q:"Bu Sari membuat 96 buah kue dalam 3 hari. Jika dibuat sama banyak setiap hari, berapa kue yang dibuat Bu Sari setiap hari?",
+        opsi:["32 kue","36 kue","48 kue","24 kue"], benar:0,
+        hint:"Membagi rata 96 ke 3 hari: 96 ÷ 3 = 32." },
+      { q:"Sebuah mobil menempuh jarak 120 km dalam 2 jam. Berapa kecepatan mobil tersebut?",
+        opsi:["240 km/jam","60 km/jam","120 km/jam","12 km/jam"], benar:1,
+        hint:"Kecepatan = Jarak ÷ Waktu = 120 ÷ 2 = 60 km/jam." },
+      { q:"Di toko, 5 buah buku tulis dijual seharga Rp150.000. Berapa harga satu buku tulis?",
+        opsi:["Rp30.000","Rp150.000","Rp300.000","Rp50.000"], benar:0,
+        hint:"Harga satu = total ÷ jumlah = 150.000 ÷ 5 = Rp30.000." }
+    ]
+  },
+  {
+    nama:"Pulau Tantangan HOTS", emoji:"💡", warna:"#f97316",
+    misi:"Misi: Pecahkan masalah yang lebih menantang (berpikir tingkat tinggi).",
+    soal:[
+      { q:"Sepasang sepatu diskon 25% dari harga Rp120.000. Berapa harga sepatu setelah diskon?",
+        opsi:["Rp90.000","Rp30.000","Rp80.000","Rp150.000"], benar:0,
+        hint:"25% dari 120.000 = 30.000 (potongan). Harga akhir = 120.000 − 30.000 = Rp90.000." },
+      { q:"Rina sudah mengumpulkan uang Rp30.000. Ia ingin membeli buku seharga Rp60.000. Rina menabung Rp2.500 setiap minggu. Berapa minggu agar Rina bisa membeli buku itu?",
+        opsi:["12 minggu","10 minggu","15 minggu","6 minggu"], benar:0,
+        hint:"Masih kurang 60.000 − 30.000 = 30.000. 30.000 ÷ 2.500 = 12 minggu." },
+      { q:"Air yang terisi penuh dalam kubus berukuran 4 cm dituangkan ke dalam kotak persegi panjang berpanjang 8 cm dan lebar 4 cm. Berapa tinggi air di kotak itu?",
+        opsi:["2 cm","4 cm","6 cm","8 cm"], benar:0,
+        hint:"Volume air = 4×4×4 = 64 cm³. Luas alas kotak = 8×4 = 32. Tinggi = 64 ÷ 32 = 2 cm." }
+    ]
+  },
+  {
+    nama:"Pulau Juara", emoji:"🏆", warna:"#eab308",
+    misi:"Misi: Tunjukkan kemampuan terbaikmu dan temukan Harta Karun Numerasi!",
+    soal:[
+      { q:"Pak Adi menabung Rp500.000 di bank dengan bunga sederhana 6% per tahun. Berapa total uang Pak Adi setelah 3 tahun?",
+        opsi:["Rp590.000","Rp530.000","Rp690.000","Rp560.000"], benar:0,
+        hint:"Bunga per tahun = 6% × 500.000 = 30.000. Untuk 3 tahun = 90.000. Total = 590.000." },
+      { q:"Sebuah mobil bergerak dengan kecepatan 90 km/jam menuju kota yang berjarak 450 km. Jika berangkat pukul 07.15, sampai di kota pukul berapa?",
+        opsi:["Pukul 12.15","Pukul 11.45","Pukul 13.15","Pukul 09.00"], benar:0,
+        hint:"Waktu = Jarak ÷ Kecepatan = 450 ÷ 90 = 5 jam. 07.15 + 5 jam = 12.15." },
+      { q:"Sebuah toko roti membeli 20 kg tepung seharga Rp12.000 per kg. Tepung itu dijadikan 60 loyang roti yang masing-masing dijual Rp6.000. Berapa keuntungan toko itu?",
+        opsi:["Rp120.000","Rp240.000","Rp360.000","Rp60.000"], benar:0,
+        hint:"Modal = 20 × 12.000 = 240.000. Omzet = 60 × 6.000 = 360.000. Untung = 360.000 − 240.000 = Rp120.000." }
+    ]
+  }
+];
+
+/* ================= STATE ================= */
+let pIdx = 0, qIdx = 0, sisaDetik = 180, timerID = null, totalMulai = 0, totalHabis = 0;
+let kunciPulau = []; // urutan opsi teracak per pulau (setiap pulau dicampur sekali)
+
+function acak(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function campurPulau(){
+  // tiap pulau: soal tetap berurutan, tapi uraian opsinya diacak
+  kunciPulau = PULAU.map(p => p.soal.map(s => {
+    const permutasi = acak(s.opsi.map((_,i)=>i));
+    return {
+      soal: s.q,
+      opsi: permutasi.map(i=>s.opsi[i]),
+      benar: permutasi.indexOf(s.benar),
+      hint: s.hint
+    };
+  }));
+}
+
+/* ================= ALUR ================= */
+function mulai(){
+  const n = document.getElementById("nama").value.trim();
+  if(!n){ alert("Tulis dulu namamu, Pelaut Muda! 🧭"); return; }
+  document.getElementById("namaTampil").textContent = n;
+  totalMulai = Date.now();
+  campurPulau();
+  document.getElementById("startScreen").style.display="none";
+  document.getElementById("gameScreen").style.display="block";
+  loadPulau();
+}
+
+function loadPulau(){
+  qIdx = 0; sisaDetik = 180;
+  clearInterval(timerID);
+  timerID = setInterval(tick, 1000);
+  drawMinimap();
+  loadSoal();
+}
+
+function tick(){
+  sisaDetik--;
+  const el = document.getElementById("timer");
+  const m = Math.floor(sisaDetik/60), s = sisaDetik%60;
+  el.textContent = `⏱ ${m}:${String(s).padStart(2,"0")}`;
+  el.classList.toggle("danger", sisaDetik<=30);
+  if(sisaDetik<=0){ clearInterval(timerID); document.getElementById("waktuHabis").classList.add("show"); }
+}
+
+function ulangPulau(){
+  document.getElementById("waktuHabis").classList.remove("show");
+  loadPulau();
+}
+
+function loadSoal(){
+  const p = PULAU[pIdx], so = kunciPulau[pIdx][qIdx];
+  const kartu = document.getElementById("misiKartu");
+  kartu.style.background = p.warna;
+  kartu.innerHTML = `<h3>${p.emoji} ${p.nama}</h3><p>${p.misi}</p>`;
+  document.getElementById("metaKq").textContent = `Misi ${qIdx+1} dari ${p.soal.length} di ${p.nama}`;
+  document.getElementById("teksKq").textContent = so.soal;
+  const kotak = document.getElementById("dafterOpsi");
+  kotak.innerHTML = "";
+  so.opsi.forEach((t,i)=>{
+    const b = document.createElement("button");
+    b.textContent = t;
+    b.onclick = ()=>jawab(i,b);
+    kotak.appendChild(b);
+  });
+  const h = document.getElementById("kotakHint");
+  h.textContent = "💡 Petunjuk: " + so.hint;
+  h.classList.remove("show");
+  pesan("","");
+  document.getElementById("barisNext").innerHTML = "";
+}
+
+function pesan(t, cls){ const p=document.getElementById("pesan"); p.textContent=t; p.className="pesan "+cls; }
+
+function jawab(i, btn){
+  const so = kunciPulau[pIdx][qIdx];
+  const semua = document.querySelectorAll("#dafterOpsi button");
+  if(i===so.benar){
+    btn.classList.add("benar");
+    semua.forEach(b=>b.disabled=true);
+    pesan("✅ Benar! Misi selesai.", "ok");
+    document.getElementById("kotakHint").classList.remove("show");
+    const next = document.createElement("button");
+    next.className="btn";
+    if(qIdx < PULAU[pIdx].soal.length-1){
+      next.textContent = `⛵ Lanjut ke Misi ${qIdx+2}`;
+      next.onclick = ()=>{ qIdx++; loadSoal(); };
+    } else if(pIdx < PULAU.length-1){
+      next.textContent = `⛵ Berlayar ke ${PULAU[pIdx+1].nama}`;
+      next.onclick = ()=>{ pIdx++; loadPulau(); };
+    } else {
+      next.textContent = "🏆 Ambil Harta Karun!";
+      next.onclick = finish;
+    }
+    document.getElementById("barisNext").appendChild(next);
+  } else {
+    btn.classList.add("salah");
+    btn.disabled = true;
+    pesan("❌ Belum tepat. Coba lihat petunjuknya atau pikirkan lagi!", "err");
+    document.getElementById("kotakHint").classList.add("show");
+  }
+}
+
+function drawMinimap(){
+  const mm = document.getElementById("minimap");
+  mm.innerHTML = "";
+  PULAU.forEach((p,i)=>{
+    const n = document.createElement("div");
+    n.className = "pulau-node" + (i===pIdx?" akan":"") + (i<pIdx?" selesai":"");
+    n.innerHTML = `<div class="dot" style="background:${p.warna};">${p.emoji}</div><div class="lbl">${p.nama.replace("Pulau ","")}</div>`;
+    mm.appendChild(n);
+    if(i<PULAU.length-1){ const j=document.createElement("div"); j.className="jembatan"; mm.appendChild(j); }
+  });
+}
+
+function finish(){
+  clearInterval(timerID);
+  totalHabis = Date.now();
+  const detik = Math.round((totalHabis-totalMulai)/1000);
+  const m = Math.floor(detik/60), s = detik%60;
+  document.getElementById("gameScreen").style.display="none";
+  document.getElementById("finishScreen").style.display="block";
+  document.getElementById("namaSertifikat").textContent = document.getElementById("namaTampil").textContent;
+  document.getElementById("infoWaktu").textContent = `Total waktu petualangan: ${m} menit ${s} detik • ${new Date().toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"})}`;
+}
+
+
+</script>
+</body>
+</html>
